@@ -88,7 +88,7 @@ const Dashboard = () => {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-sidebar-border">
-            <h1 className="text-xl font-bold">SaaS Dashboard</h1>
+            <h1 className="text-xl font-bold">Contact Form Dashboard</h1>
             <Button
               variant="ghost"
               size="icon"
