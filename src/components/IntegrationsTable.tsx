@@ -4,13 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Edit, Trash2, Copy, Eye, ExternalLink } from 'lucide-react';
+import { Edit, Trash2, Copy, Eye, ExternalLink, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { IntegrationActions } from '@/components/IntegrationActions';
 
 interface IntegrationsTableProps {
   integrations: Integration[];
   onEdit: (integration: Integration) => void;
   onDelete: (id: string) => void;
+  onToggleStatus: (id: string, enabled: boolean) => void;
   isDeleting: boolean;
 }
 
@@ -18,6 +20,7 @@ export const IntegrationsTable: React.FC<IntegrationsTableProps> = ({
   integrations,
   onEdit,
   onDelete,
+  onToggleStatus,
   isDeleting
 }) => {
   const { toast } = useToast();
@@ -33,6 +36,8 @@ export const IntegrationsTable: React.FC<IntegrationsTableProps> = ({
   const openWebsite = (url: string) => {
     window.open(url, '_blank');
   };
+
+  console.log('IntegrationsTable received:', integrations);
 
   if (integrations.length === 0) {
     return (
@@ -121,25 +126,13 @@ export const IntegrationsTable: React.FC<IntegrationsTableProps> = ({
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex gap-1 justify-end">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onEdit(integration)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(integration.id)}
-                      disabled={isDeleting}
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <IntegrationActions
+                    integration={integration}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onToggleStatus={onToggleStatus}
+                    isDeleting={isDeleting}
+                  />
                 </TableCell>
               </TableRow>
             ))}

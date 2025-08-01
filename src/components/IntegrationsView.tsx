@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { IntegrationForm } from '@/components/IntegrationForm';
 import { IntegrationsTable } from '@/components/IntegrationsTable';
 import { ApiKeyDisplay } from '@/components/ApiKeyDisplay';
+import { IntegrationStats } from '@/components/IntegrationStats';
 
 export const IntegrationsView = () => {
   const [showForm, setShowForm] = useState(false);
@@ -125,9 +126,14 @@ export const IntegrationsView = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this integration?')) {
-      deleteMutation.mutate(id);
-    }
+    deleteMutation.mutate(id);
+  };
+
+  const handleToggleStatus = (id: string, enabled: boolean) => {
+    updateMutation.mutate({ 
+      id, 
+      data: { is_forwarding_enabled: enabled }
+    });
   };
 
   const handleNewIntegration = () => {
@@ -136,6 +142,9 @@ export const IntegrationsView = () => {
   };
 
   const integrations = integrationsData?.integrations || [];
+
+  console.log('Integrations data:', integrationsData);
+  console.log('Integrations array:', integrations);
 
   return (
     <div className="space-y-8">
@@ -151,6 +160,9 @@ export const IntegrationsView = () => {
           New Integration
         </Button>
       </div>
+
+      {/* Stats Overview */}
+      <IntegrationStats integrations={integrations} />
 
       {/* API Key Display */}
       {generatedApiKey && (
@@ -183,6 +195,7 @@ export const IntegrationsView = () => {
           integrations={integrations}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onToggleStatus={handleToggleStatus}
           isDeleting={deleteMutation.isPending}
         />
       )}
