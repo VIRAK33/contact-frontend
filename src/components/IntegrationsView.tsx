@@ -141,7 +141,7 @@ export const IntegrationsView = () => {
     setShowForm(true);
   };
 
-  const integrations = integrationsData || [];
+  const integrations = integrationsData?.integrations || [];
 
   console.log('Integrations data:', integrationsData);
   console.log('Integrations array:', integrations);

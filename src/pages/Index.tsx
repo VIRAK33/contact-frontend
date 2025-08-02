@@ -5,11 +5,13 @@ import { DashboardView } from '@/components/DashboardView';
 import { IntegrationsView } from '@/components/IntegrationsView';
 import { SubmissionsView } from '@/components/SubmissionsView';
 import { SettingsView } from '@/components/SettingsView';
+import { ChatView } from '@/components/ChatView';
 import { 
   Home, 
   Settings, 
   FileText, 
   Zap, 
+  MessageCircle,
   Menu, 
   X, 
   Sun, 
@@ -22,6 +24,7 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
   { id: 'integrations', label: 'Integrations', icon: Zap },
   { id: 'submissions', label: 'Submissions', icon: FileText },
+  { id: 'chat', label: 'Chat', icon: MessageCircle },
   { id: 'settings', label: 'Settings', icon: Settings }
 ];
 
@@ -63,6 +66,8 @@ const Dashboard = () => {
         return <IntegrationsView />;
       case 'submissions':
         return <SubmissionsView />;
+      case 'chat':
+        return <ChatView />;
       case 'settings':
         return <SettingsView />;
       default:
