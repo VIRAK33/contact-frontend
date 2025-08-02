@@ -1,6 +1,8 @@
-const API_BASE_URL = 'http://localhost:3000/api/v1'; // Update this to your actual API base URL
+// src/lib/api.ts
 
-// Types
+const API_BASE_URL = 'http://localhost:3000/api/v1'; // Your API base URL
+
+// --- Existing Types ---
 export interface User {
   id: string;
   name: string;
@@ -47,7 +49,31 @@ export interface SubmissionsResponse {
   submissions: Submission[];
 }
 
-// API Error class
+
+// --- ADDED: Chat Feature Types ---
+export interface ChatMessage {
+  id: string;
+  chat_room_id: string;
+  sender_id: string;
+  content: string;
+  timestamp: string;
+  type?: 'message';
+  // Frontend-specific properties
+  isOwn?: boolean;
+  sender?: { name: string };
+}
+
+
+export interface ChatRoom {
+  id: string;
+  name: string;
+  lastMessage?: string;
+  lastMessageTime?: string;
+  unread_count: number;
+}
+
+
+// --- API Error class ---
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -75,7 +101,6 @@ const makeRequest = async (endpoint: string, options: RequestInit = {}) => {
     throw new ApiError(response.status, errorText || response.statusText);
   }
 
-  // Handle 204 No Content responses
   if (response.status === 204) {
     return null;
   }
@@ -83,7 +108,7 @@ const makeRequest = async (endpoint: string, options: RequestInit = {}) => {
   return response.json();
 };
 
-// Auth API calls
+// --- Existing API Calls ---
 export const authApi = {
   register: async (userData: { name: string; email: string; password: string }) => {
     return makeRequest('/auth/register', {
@@ -91,39 +116,35 @@ export const authApi = {
       body: JSON.stringify(userData),
     });
   },
-
   login: async (credentials: { email: string; password: string }): Promise<AuthResponse> => {
     return makeRequest('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
   },
-
   getProfile: async (): Promise<{ user: User }> => {
     return makeRequest('/auth/profile');
   },
 };
 
-// Integrations API calls
 export const integrationsApi = {
   getAll: async (): Promise<{ integrations: Integration[] }> => {
-    return makeRequest('/integrations');
+    // Note: The backend returns an array directly, but we wrap it for consistency
+    const integrations = await makeRequest('/integrations');
+    return { integrations };
   },
-
   create: async (data: CreateIntegrationRequest): Promise<CreateIntegrationResponse> => {
     return makeRequest('/integrations', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
-
   update: async (id: string, data: Partial<CreateIntegrationRequest>) => {
     return makeRequest(`/integrations/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
-
   delete: async (id: string) => {
     return makeRequest(`/integrations/${id}`, {
       method: 'DELETE',
@@ -131,30 +152,18 @@ export const integrationsApi = {
   },
 };
 
-// Submissions API calls
 export const submissionsApi = {
   getAll: async (params?: {
     page?: number;
     limit?: number;
-    integrationId?: string;
-    startDate?: string;
-    endDate?: string;
   }): Promise<SubmissionsResponse> => {
     const searchParams = new URLSearchParams();
     if (params?.page) searchParams.set('page', params.page.toString());
     if (params?.limit) searchParams.set('limit', params.limit.toString());
-    if (params?.integrationId) searchParams.set('integrationId', params.integrationId);
-    if (params?.startDate) searchParams.set('startDate', params.startDate);
-    if (params?.endDate) searchParams.set('endDate', params.endDate);
 
     const queryString = searchParams.toString();
     return makeRequest(`/submissions${queryString ? `?${queryString}` : ''}`);
   },
-
-  getById: async (id: string): Promise<Submission> => {
-    return makeRequest(`/submissions/${id}`);
-  },
-
   delete: async (id: string) => {
     return makeRequest(`/submissions/${id}`, {
       method: 'DELETE',
@@ -162,15 +171,17 @@ export const submissionsApi = {
   },
 };
 
-// Public submission endpoint (no auth required)
-export const publicApi = {
-  submit: async (data: Record<string, any>, apiKey: string) => {
-    return fetch(`${API_BASE_URL}/submit`, {
+// --- ADDED: Chat API Calls ---
+export const chatApi = {
+  getRooms: async (): Promise<ChatRoom[]> => {
+    return makeRequest('/chat/rooms');
+  },
+  getMessages: async (roomId: string): Promise<ChatMessage[]> => {
+    return makeRequest(`/chat/rooms/${roomId}/messages`);
+  },
+  createRoom: async (data: { name: string; participants: string[] }): Promise<ChatRoom> => {
+    return makeRequest('/chat/rooms', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-      },
       body: JSON.stringify(data),
     });
   },
