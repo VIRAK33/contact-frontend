@@ -18,13 +18,13 @@ export interface Integration {
   id: string;
   website_url: string;
   is_forwarding_enabled: boolean;
-  telegram_bot_token?: string;
+  encrypted_telegram_token?: string;
   telegram_chat_id?: string;
 }
 
 export interface CreateIntegrationRequest {
   website_url: string;
-  telegram_bot_token: string;
+  encrypted_telegram_token: string;
   telegram_chat_id: string;
   is_forwarding_enabled: boolean;
 }
