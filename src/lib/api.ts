@@ -1,8 +1,9 @@
 // src/lib/api.ts
 
-const API_BASE_URL = 'http://localhost:3000/api/v1'; // Your API base URL
+import { makeRequest } from './apiClient'; // Import from our new client file
 
-// --- Existing Types ---
+// --- TypeScript Interfaces for Data Structures ---
+
 export interface User {
   id: string;
   name: string;
@@ -18,13 +19,13 @@ export interface Integration {
   id: string;
   website_url: string;
   is_forwarding_enabled: boolean;
-  encrypted_telegram_token?: string;
+  telegram_bot_token?: string;
   telegram_chat_id?: string;
 }
 
 export interface CreateIntegrationRequest {
   website_url: string;
-  encrypted_telegram_token: string;
+  telegram_bot_token: string;
   telegram_chat_id: string;
   is_forwarding_enabled: boolean;
 }
@@ -49,8 +50,6 @@ export interface SubmissionsResponse {
   submissions: Submission[];
 }
 
-
-// --- ADDED: Chat Feature Types ---
 export interface ChatMessage {
   id: string;
   chat_room_id: string;
@@ -58,11 +57,7 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   type?: 'message';
-  // Frontend-specific properties
-  isOwn?: boolean;
-  sender?: { name: string };
 }
-
 
 export interface ChatRoom {
   id: string;
@@ -72,117 +67,56 @@ export interface ChatRoom {
   unread_count: number;
 }
 
+// --- API Endpoint Definitions ---
 
-// --- API Error class ---
-export class ApiError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
-
-// Helper function to make authenticated requests
-const makeRequest = async (endpoint: string, options: RequestInit = {}) => {
-  const token = localStorage.getItem('auth_token');
-  
-  const config: RequestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
-    ...options,
-  };
-
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new ApiError(response.status, errorText || response.statusText);
-  }
-
-  if (response.status === 204) {
-    return null;
-  }
-
-  return response.json();
-};
-
-// --- Existing API Calls ---
 export const authApi = {
-  register: async (userData: { name: string; email: string; password: string }) => {
-    return makeRequest('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
-  },
-  login: async (credentials: { email: string; password: string }): Promise<AuthResponse> => {
-    return makeRequest('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-  },
-  getProfile: async (): Promise<{ user: User }> => {
-    return makeRequest('/auth/profile');
-  },
+  register: (data: { name: string; email: string; password: string }) => 
+    makeRequest('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+  
+  login: (data: { email: string; password: string }): Promise<AuthResponse> => 
+    makeRequest('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  
+  getProfile: (): Promise<{ user: User }> => 
+    makeRequest('/auth/profile'),
 };
 
 export const integrationsApi = {
-  getAll: async (): Promise<{ integrations: Integration[] }> => {
-    // Note: The backend returns an array directly, but we wrap it for consistency
-    const integrations = await makeRequest('/integrations');
-    return { integrations };
-  },
-  create: async (data: CreateIntegrationRequest): Promise<CreateIntegrationResponse> => {
-    return makeRequest('/integrations', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-  update: async (id: string, data: Partial<CreateIntegrationRequest>) => {
-    return makeRequest(`/integrations/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  },
-  delete: async (id: string) => {
-    return makeRequest(`/integrations/${id}`, {
-      method: 'DELETE',
-    });
-  },
+  getAll: (): Promise<{ integrations: Integration[] }> => 
+    makeRequest('/integrations'),
+  
+  create: (data: CreateIntegrationRequest): Promise<CreateIntegrationResponse> =>
+    makeRequest('/integrations', { method: 'POST', body: JSON.stringify(data) }),
+
+  update: (id: string, data: Partial<CreateIntegrationRequest>) =>
+    makeRequest(`/integrations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  delete: (id: string) =>
+    makeRequest(`/integrations/${id}`, { method: 'DELETE' }),
 };
 
 export const submissionsApi = {
-  getAll: async (params?: {
-    page?: number;
-    limit?: number;
-  }): Promise<SubmissionsResponse> => {
+  getAll: (params?: { page?: number; limit?: number; }): Promise<SubmissionsResponse> => {
     const searchParams = new URLSearchParams();
     if (params?.page) searchParams.set('page', params.page.toString());
     if (params?.limit) searchParams.set('limit', params.limit.toString());
-
     const queryString = searchParams.toString();
     return makeRequest(`/submissions${queryString ? `?${queryString}` : ''}`);
   },
-  delete: async (id: string) => {
-    return makeRequest(`/submissions/${id}`, {
-      method: 'DELETE',
-    });
-  },
+
+  delete: (id: string) =>
+    makeRequest(`/submissions/${id}`, { method: 'DELETE' }),
 };
 
-// --- ADDED: Chat API Calls ---
 export const chatApi = {
-  getRooms: async (): Promise<ChatRoom[]> => {
-    return makeRequest('/chat/rooms');
-  },
-  getMessages: async (roomId: string): Promise<ChatMessage[]> => {
-    return makeRequest(`/chat/rooms/${roomId}/messages`);
-  },
-  createRoom: async (data: { name: string; participants: string[] }): Promise<ChatRoom> => {
-    return makeRequest('/chat/rooms', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
+  getRooms: (): Promise<ChatRoom[]> => 
+    makeRequest('/chat/rooms'),
+  
+  getMessages: (roomId: string): Promise<ChatMessage[]> => 
+    makeRequest(`/chat/rooms/${roomId}/messages`),
+  
+  createRoom: (data: { name: string; participants: string[] }): Promise<ChatRoom> => 
+    makeRequest('/chat/rooms', { method: 'POST', body: JSON.stringify(data) }),
+
+  clearUnreadCount: (roomId: string): Promise<{ message: string }> =>
+    makeRequest(`/chat/rooms/${roomId}/read`, { method: 'POST' }),
 };

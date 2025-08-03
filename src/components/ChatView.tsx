@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { chatApi, ChatRoom, ChatMessage } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWebSocket } from '@/contexts/WebSocketContext'; // Import the new WebSocket hook
 import { MessageCircle, Send, Plus, X, Phone, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,94 +17,54 @@ import { Skeleton } from '@/components/ui/skeleton';
 export const ChatView = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  
+  // --- Get data and functions from the global WebSocket context ---
+  const { isConnected, chatRooms, sendMessage: sendWsMessage } = useWebSocket();
+  
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [message, setMessage] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { data: chatRooms = [], isLoading: isLoadingRooms } = useQuery<ChatRoom[]>({
-    queryKey: ['chatRooms'],
-    queryFn: chatApi.getRooms,
-  });
+  // --- All useEffect logic for managing the WebSocket connection has been removed ---
+  // It now lives in WebSocketContext.tsx
 
+  // This query still fetches the message history for the *selected* chat.
+  // The cache is updated in real-time by the WebSocketContext.
   const { data: messages = [], isLoading: isLoadingMessages } = useQuery<ChatMessage[]>({
     queryKey: ['chatMessages', selectedChat],
     queryFn: () => (selectedChat ? chatApi.getMessages(selectedChat) : Promise.resolve([])),
     enabled: !!selectedChat,
   });
 
-  useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (!token) return;
-
-    const connectWebSocket = () => {
-      const ws = new WebSocket(`ws://localhost:3000/ws?token=${token}`);
-      wsRef.current = ws;
-
-      ws.onopen = () => setIsConnected(true);
-      ws.onclose = () => {
-        setIsConnected(false);
-        setTimeout(connectWebSocket, 5000);
-      };
-      ws.onerror = (error) => console.error('WebSocket error:', error);
-
-      // --- THIS IS THE CORRECTED HANDLER ---
-      ws.onmessage = (event) => {
-        try {
-          const newMessageData: ChatMessage = JSON.parse(event.data);
-
-          if (newMessageData.type === 'message') {
-            // Add the new message to the react-query cache
-            queryClient.setQueryData(
-              ['chatMessages', newMessageData.chat_room_id], // Use the correct property
-              (oldData: ChatMessage[] = []) => {
-                if (!oldData.some(m => m.id === newMessageData.id)) {
-                  // The newMessageData object is already a valid ChatMessage
-                  return [...oldData, newMessageData];
-                }
-                return oldData;
-              }
-            );
-
-            // Update chat room preview
-            queryClient.setQueryData(
-              ['chatRooms'],
-              (oldRooms: ChatRoom[] = []) =>
-                oldRooms.map(room =>
-                  room.id === newMessageData.chat_room_id // Use the correct property
-                    ? { ...room, lastMessage: newMessageData.content, lastMessageTime: newMessageData.timestamp }
-                    : room
-                )
-            );
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
-    };
-
-    connectWebSocket();
-    return () => {
-      wsRef.current?.close();
-    };
-  }, [queryClient]); // Dependency array is correct
-
-  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Effect to scroll to the bottom when new messages are added
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
   useEffect(scrollToBottom, [messages]);
 
-  const sendMessage = () => {
-    if (!message.trim() || !selectedChat || wsRef.current?.readyState !== WebSocket.OPEN) {
-      return;
+  // This function handles clearing the unread count when a chat is opened
+  const handleSelectChat = async (chat: ChatRoom) => {
+    setSelectedChat(chat.id);
+    if (chat.unread_count > 0) {
+      try {
+        // Optimistically update the UI in the shared context for an instant response
+        queryClient.setQueryData(['chatRooms'], (oldRooms: ChatRoom[] = []) =>
+          oldRooms.map(r => r.id === chat.id ? { ...r, unread_count: 0 } : r)
+        );
+        // Call the API to update the backend
+        await chatApi.clearUnreadCount(chat.id);
+      } catch (error) {
+        console.error("Failed to clear unread count", error);
+        // If the API call fails, invalidate the query to refetch the real state
+        queryClient.invalidateQueries({ queryKey: ['chatRooms'] });
+      }
     }
+  };
 
-    // Directly send the message via WebSocket. The backend will save it and broadcast it back.
-    wsRef.current.send(JSON.stringify({
-      type: 'message',
-      chatId: selectedChat,
-      text: message,
-    }));
-    
+  // This function now uses the sendMessage function from the context
+  const sendMessage = () => {
+    if (!message.trim() || !selectedChat) return;
+    sendWsMessage(selectedChat, message);
     setMessage('');
   };
 
@@ -113,13 +74,18 @@ export const ChatView = () => {
       sendMessage();
     }
   };
-  
+
   const createNewChat = async () => {
-      const chatName = prompt("Enter a name for the new chat:");
-      if (chatName) {
-          await chatApi.createRoom({ name: chatName, participants: [] });
-          queryClient.invalidateQueries({ queryKey: ['chatRooms'] });
+    const chatName = prompt("Enter a name for the new chat:");
+    if (chatName) {
+      try {
+        await chatApi.createRoom({ name: chatName, participants: [] });
+        // Invalidate the query to refetch the room list, which will update the context
+        queryClient.invalidateQueries({ queryKey: ['chatRooms'] });
+      } catch (error) {
+        console.error("Failed to create chat room:", error);
       }
+    }
   };
 
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -139,25 +105,20 @@ export const ChatView = () => {
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[calc(100vh-220px)]">
-              {isLoadingRooms ? (
-                <div className="space-y-2 p-4 pt-0">
-                    <Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" />
-                </div>
-              ) : (
-                <div className="space-y-1 p-4 pt-0">
-                  {chatRooms.map((chat) => (
-                    <div key={chat.id} onClick={() => setSelectedChat(chat.id)}
-                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${selectedChat === chat.id ? 'bg-primary/10' : 'hover:bg-muted/50'}`}>
-                      <Avatar><AvatarFallback>{chat.name.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium truncate">{chat.name}</h4>
-                        <p className="text-xs text-muted-foreground truncate">{chat.lastMessage || 'No messages'}</p>
-                      </div>
-                      {chat.unread_count > 0 && <Badge variant="destructive">{chat.unread_count}</Badge>}
+              {/* This now uses the real-time chatRooms from the WebSocket context */}
+              <div className="space-y-1 p-4 pt-0">
+                {chatRooms.map((chat) => (
+                  <div key={chat.id} onClick={() => handleSelectChat(chat)}
+                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${selectedChat === chat.id ? 'bg-primary/10' : 'hover:bg-muted/50'}`}>
+                    <Avatar><AvatarFallback>{chat.name.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium truncate">{chat.name}</h4>
+                      <p className="text-xs text-muted-foreground truncate">{chat.lastMessage || 'No messages'}</p>
                     </div>
-                  ))}
-                </div>
-              )}
+                    {chat.unread_count > 0 && <Badge variant="destructive">{chat.unread_count}</Badge>}
+                  </div>
+                ))}
+              </div>
             </ScrollArea>
           </CardContent>
         </Card>
@@ -169,16 +130,14 @@ export const ChatView = () => {
             <CardHeader className="pb-3 border-b">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Avatar><AvatarFallback>{chatRooms.find(c => c.id === selectedChat)?.name.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
-                    <div>
-                        <h3 className="font-semibold">{chatRooms.find(c => c.id === selectedChat)?.name}</h3>
-                        <p className="text-xs text-muted-foreground">{isConnected ? 'Online' : 'Offline'}</p>
-                    </div>
+                  <Avatar><AvatarFallback>{chatRooms.find(c => c.id === selectedChat)?.name.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
+                  <div>
+                    <h3 className="font-semibold">{chatRooms.find(c => c.id === selectedChat)?.name}</h3>
+                    <p className="text-xs text-muted-foreground">{isConnected ? 'Online' : 'Offline'}</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* <Button size="sm" variant="ghost"><Phone className="h-4 w-4" /></Button>
-                    <Button size="sm" variant="ghost"><Video className="h-4 w-4" /></Button> */}
-                    <Button size="sm" variant="ghost" onClick={() => setSelectedChat(null)}><X className="h-4 w-4" /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedChat(null)}><X className="h-4 w-4" /></Button>
                 </div>
               </div>
             </CardHeader>
@@ -205,15 +164,15 @@ export const ChatView = () => {
               </ScrollArea>
             </CardContent>
             <div className="border-t p-4">
-                <div className="flex gap-2">
-                    <Input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type a message..." onKeyPress={handleKeyPress} />
-                    <Button onClick={sendMessage} disabled={!message.trim()}><Send className="h-4 w-4" /></Button>
-                </div>
+              <div className="flex gap-2">
+                <Input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type a message..." onKeyPress={handleKeyPress} />
+                <Button onClick={sendMessage} disabled={!message.trim()}><Send className="h-4 w-4" /></Button>
+              </div>
             </div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-             <div className="text-center space-y-4">
+            <div className="text-center space-y-4">
               <MessageCircle className="h-16 w-16 text-muted-foreground mx-auto" />
               <div>
                 <h3 className="text-lg font-semibold">Select a chat</h3>
