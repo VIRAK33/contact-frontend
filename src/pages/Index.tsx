@@ -1,10 +1,6 @@
-// src/pages/Index.tsx
-
-import React, { useState, useEffect, useMemo } from 'react'; // NEW: Import useMemo
-import { useQuery } from '@tanstack/react-query'; // NEW: Import useQuery
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWebSocket } from '@/contexts/WebSocketContext';
-import { chatApi, ChatRoom } from '@/lib/api'; // NEW: Import chatApi and ChatRoom type
 import { LoginForm } from '@/components/LoginForm';
 import { DashboardView } from '@/components/DashboardView';
 import { IntegrationsView } from '@/components/IntegrationsView';
@@ -17,13 +13,25 @@ import {
   FileText, 
   Zap, 
   MessageCircle,
-  Menu, 
-  X, 
   Sun, 
   Moon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge'; // NEW: Import Badge
+import { Badge } from '@/components/ui/badge';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+  SidebarHeader,
+} from '@/components/ui/sidebar';
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -33,11 +41,73 @@ const navItems = [
   { id: 'settings', label: 'Settings', icon: Settings }
 ];
 
+function AppSidebar({ currentView, setCurrentView, totalUnreadCount }: {
+  currentView: string;
+  setCurrentView: (view: string) => void;
+  totalUnreadCount: number;
+}) {
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <div className="flex items-center gap-3 px-2 py-2">
+          <img src="/logo.webp" alt="Logo" className="h-8 w-8 flex-shrink-0" />
+          {!collapsed && <h1 className="text-xl font-bold">Dashboard</h1>}
+        </div>
+      </SidebarHeader>
+      
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentView === item.id;
+                
+                return (
+                  <SidebarMenuItem key={item.id} className="relative">
+                    <SidebarMenuButton
+                      onClick={() => setCurrentView(item.id)}
+                      isActive={isActive}
+                      tooltip={collapsed ? item.label : undefined}
+                    >
+                      <Icon className="h-5 w-5" />
+                      {!collapsed && <span>{item.label}</span>}
+                    </SidebarMenuButton>
+                    {item.id === 'chat' && totalUnreadCount > 0 && !collapsed && (
+                      <Badge 
+                        variant="destructive"
+                        className="absolute top-1 right-2 pointer-events-none text-xs px-1.5 py-0.5"
+                      >
+                        {totalUnreadCount}
+                      </Badge>
+                    )}
+                    {item.id === 'chat' && totalUnreadCount > 0 && collapsed && (
+                      <Badge 
+                        variant="destructive"
+                        className="absolute -top-1 -right-1 pointer-events-none text-xs px-1 py-0 h-5 w-5 flex items-center justify-center rounded-full"
+                      >
+                        {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
+                      </Badge>
+                    )}
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
+  );
+}
+
 const Index = () => {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const { chatRooms } = useWebSocket();
   const [currentView, setCurrentView] = useState('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   const totalUnreadCount = useMemo(() => {
@@ -72,75 +142,37 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-dashboard-bg">
-      <aside className={`
-        fixed top-0 left-0 z-50 h-full w-64 bg-sidebar-bg border-r border-sidebar-border transform transition-transform duration-200 ease-in-out
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between h-16 px-6 border-b border-sidebar-border">
-            <div className="flex items-center gap-3">
-              <img src="/logo.webp" alt="Logo" className="h-8 w-8" />
-              <h1 className="text-xl font-bold">Dashboard</h1>
+    <SidebarProvider>
+      <div className="min-h-screen w-full bg-dashboard-bg flex">
+        <AppSidebar 
+          currentView={currentView} 
+          setCurrentView={setCurrentView}
+          totalUnreadCount={totalUnreadCount}
+        />
+        
+        <div className="flex-1 flex flex-col">
+          <header className="h-16 bg-background border-b border-border flex items-center justify-between px-4 lg:px-6">
+            <SidebarTrigger />
+            
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground hidden sm:block">
+                Welcome, {user?.name}
+              </span>
+              <Button variant="ghost" size="icon" onClick={() => setIsDarkMode(!isDarkMode)}>
+                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </Button>
+              <Button variant="outline" onClick={logout} size="sm">
+                Logout
+              </Button>
             </div>
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsSidebarOpen(false)}><X className="h-5 w-5" /></Button>
-          </div>
-          <nav className="flex-1 px-4 py-6">
-            <ul className="space-y-2">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = currentView === item.id;
-                
-                return (
-                  <li key={item.id} className="relative">
-                    <button
-                      onClick={() => {
-                        setCurrentView(item.id);
-                        setIsSidebarOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${isActive ? 'bg-nav-active-bg text-nav-active' : 'text-foreground hover:bg-nav-hover'}`}
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span>{item.label}</span>
-                    </button>
-                    {item.id === 'chat' && totalUnreadCount > 0 && (
-                      <Badge 
-                        variant="destructive"
-                        className="absolute top-1 right-2 pointer-events-none"
-                      >
-                        {totalUnreadCount}
-                      </Badge>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
+          </header>
+          
+          <main className="flex-1 p-4 lg:p-6 overflow-auto">
+            {renderView()}
+          </main>
         </div>
-      </aside>
-      
-      <div className="lg:ml-64">
-        <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6">
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsSidebarOpen(true)}>
-            <Menu className="h-5 w-5" />
-          </Button>
-          <div className="flex items-center gap-4 ml-auto">
-            <span className="text-sm text-muted-foreground hidden sm:block">
-              Welcome, {user?.name}
-            </span>
-            <Button variant="ghost" size="icon" onClick={() => setIsDarkMode(!isDarkMode)}>
-              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </Button>
-            <Button variant="outline" onClick={logout} size="sm">
-              Logout
-            </Button>
-          </div>
-        </header>
-        <main className="p-6">
-          {renderView()}
-        </main>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
