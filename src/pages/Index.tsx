@@ -79,7 +79,10 @@ const Index = () => {
       `}>
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between h-16 px-6 border-b border-sidebar-border">
-            <h1 className="text-xl font-bold">Dashboard</h1>
+            <div className="flex items-center gap-3">
+              <img src="/logo.webp" alt="Logo" className="h-8 w-8" />
+              <h1 className="text-xl font-bold">Dashboard</h1>
+            </div>
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsSidebarOpen(false)}><X className="h-5 w-5" /></Button>
           </div>
           <nav className="flex-1 px-4 py-6">

@@ -30,6 +30,9 @@ export const LoginForm: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <img src="/logo.webp" alt="Logo" className="h-16 w-16" />
+          </div>
           <CardTitle className="text-2xl font-bold">Welcome</CardTitle>
           <CardDescription>Sign in to your account or create a new one</CardDescription>
         </CardHeader>

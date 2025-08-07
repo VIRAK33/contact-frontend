@@ -16,7 +16,7 @@ export const DashboardView = () => {
     queryFn: () => submissionsApi.getAll({ limit: 5 }),
   });
 
-  const integrations = integrationsData || [];
+  const integrations = Array.isArray(integrationsData) ? integrationsData : integrationsData?.integrations || [];
   const submissions = submissionsData?.submissions || [];
   const activeIntegrations = integrations.filter(int => int.is_forwarding_enabled).length;
 

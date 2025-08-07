@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { authApi, User, ApiError, ChatMessage } from '@/lib/api';
+import { authApi, User, ChatMessage } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
@@ -125,7 +125,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
       return true;
     } catch (error) {
-      const apiError = error as ApiError;
+      const apiError = error as any;
       toast({
         title: "Login failed",
         description: apiError.message || "An unexpected error occurred.",
@@ -147,7 +147,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
       return true;
     } catch (error) {
-        const apiError = error as ApiError;
+        const apiError = error as any;
         toast({
             title: "Registration failed",
             description: apiError.message || "An unexpected error occurred.",
@@ -204,5 +204,5 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuth,
   };
 
-  return <AuthContext.Provider value={value}>{children}</Auth-Context.Provider>;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
