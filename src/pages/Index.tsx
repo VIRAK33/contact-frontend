@@ -54,7 +54,6 @@ function AppSidebar({ currentView, setCurrentView, totalUnreadCount }: {
       <SidebarHeader>
         <div className="flex items-center gap-3 px-2 py-2">
           <img src="/logo.webp" alt="Logo" className="h-8 w-8 flex-shrink-0" />
-          {!collapsed && <h1 className="text-xl font-bold">Dashboard</h1>}
         </div>
       </SidebarHeader>
       
@@ -69,13 +68,14 @@ function AppSidebar({ currentView, setCurrentView, totalUnreadCount }: {
                 
                 return (
                   <SidebarMenuItem key={item.id} className="relative">
-                    <SidebarMenuButton
+                     <SidebarMenuButton
                       onClick={() => setCurrentView(item.id)}
                       isActive={isActive}
                       tooltip={collapsed ? item.label : undefined}
+                      className="text-base"
                     >
                       <Icon className="h-5 w-5" />
-                      {!collapsed && <span>{item.label}</span>}
+                      {!collapsed && <span className="text-base font-medium">{item.label}</span>}
                     </SidebarMenuButton>
                     {item.id === 'chat' && totalUnreadCount > 0 && !collapsed && (
                       <Badge 
