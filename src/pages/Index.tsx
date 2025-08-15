@@ -50,7 +50,7 @@ function AppSidebar({ currentView, setCurrentView, totalUnreadCount }: {
   const collapsed = state === "collapsed";
 
   return (
-    <Sidebar collapsible="icon" className="bg-sidebar-bg border-sidebar-border">
+    <Sidebar collapsible="icon" className="bg-background border-border">
       <SidebarHeader>
         <div className="flex items-center gap-3 px-2 py-2">
           <img src="/logo.webp" alt="Logo" className="h-8 w-8 flex-shrink-0" />
