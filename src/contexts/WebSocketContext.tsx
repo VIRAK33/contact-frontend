@@ -58,7 +58,8 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
     if (!token) return;
 
     const connect = () => {
-      const ws = new WebSocket(`ws://localhost:3000/ws?token=${token}`);
+      const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:3000/ws';
+      const ws = new WebSocket(`${wsBaseUrl}?token=${token}`);
       wsRef.current = ws;
 
       ws.onopen = () => setIsConnected(true);
